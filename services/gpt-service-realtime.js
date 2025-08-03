@@ -35,20 +35,18 @@ class GptServiceRealtime extends EventEmitter {
 
   async attemptRequest(text, interactionCount, startTime, attempt) {
     try {
-      // Payload optimizado manteniendo estructura completa
+      // Payload ultra-minimalista para máxima velocidad
       const ultraPayload = {
-        currentMessage: text,
-        conversationHistory: this.lastContextCache, // Cache pre-construido
-        interactionCount: interactionCount,
-        realtime: true,
-        timestamp: Date.now()
+        m: text, // message ultra-comprimido
+        c: interactionCount, // count comprimido
+        r: true // realtime flag
       };
 
       console.log('📤 [ULTRA-FAST] Sending minimal payload');
 
-      // Request con timeout optimizado y conexión persistente
+      // Request con timeout ultra-agresivo y retry
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout más realista
+      const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s timeout ultra-agresivo
 
       const response = await fetch(this.n8nWebhookUrl, {
         method: 'POST',
@@ -91,10 +89,9 @@ class GptServiceRealtime extends EventEmitter {
       const errorTime = Date.now() - startTime;
       console.error(`❌ [ULTRA-FAST] Error after ${errorTime}ms (attempt ${attempt + 1}):`, error.message);
 
-      // Retry inteligente con backoff mínimo
-      if (attempt === 0 && errorTime < 6000) {
-        console.log('🔄 [ULTRA-FAST] Intelligent retry...');
-        await new Promise(resolve => setTimeout(resolve, 200)); // 200ms backoff
+      // Retry automático una sola vez para no perder más tiempo
+      if (attempt === 0 && errorTime < 4000) {
+        console.log('🔄 [ULTRA-FAST] Quick retry...');
         return this.attemptRequest(text, interactionCount, startTime, attempt + 1);
       }
 
@@ -137,15 +134,15 @@ class GptServiceRealtime extends EventEmitter {
     for (let i = 0; i < words.length; i++) {
       partialResponse += words[i] + ' ';
 
-      // Chunks de 6-8 palabras para mejor fluidez
-      if (i % 6 === 0 || i === words.length - 1) {
+      // Chunks de 10-12 palabras para máxima fluidez
+      if (i % 10 === 0 || i === words.length - 1) {
         const isLast = i === words.length - 1;
         this.emit('gptreply', partialResponse.trim(), isLast, interactionCount);
         partialResponse = '';
 
-        // Delay ultra-mínimo para máxima fluidez
+        // Delay mínimo para no saturar pero mantener fluidez
         if (!isLast) {
-          await new Promise(resolve => setTimeout(resolve, 15)); // 15ms ultra-rápido
+          await new Promise(resolve => setTimeout(resolve, 25)); // 25ms ultra-rápido
         }
       }
     }
