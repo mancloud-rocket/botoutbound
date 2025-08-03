@@ -272,43 +272,43 @@ app.ws('/sockets', (ws) => {
       }  
       
       if (msg.type === 'prompt') {
-        const promptStartTime = Date.now();
-        addLog('convrelay', `⚡ PROMPT RECEIVED (${msg.lang}): ${msg.voicePrompt.substring(0, 50)}...`);
+        addLog('convrelay', `convrelay -> GPT (${msg.lang}) :  ${msg.voicePrompt} `);
         
         // Initialize GPT service if not already done (for direct testing)
         if (!localGptService) {
           const model = record?.model || 'gpt-4o';
           localGptService = gptService || createGptService(model);
           
-          // Contexto ultra-comprimido para máxima velocidad
+          // If we're creating a new GPT service and have record data, set up the context
           if (!gptService && record) {
-            // Solo el prompt esencial y perfil básico
-            localGptService.userContext.push({ 'role': 'system', 'content': record.sys_prompt?.substring(0, 500) || 'You are Owl Shoes assistant' });
-            localGptService.userContext.push({ 'role': 'system', 'content': `Language: ${record.language || 'es-ES'}` });
+            localGptService.userContext.push({ 'role': 'system', 'content': record.sys_prompt });
+            localGptService.userContext.push({ 'role': 'system', 'content': record.profile });
+            localGptService.userContext.push({ 'role': 'system', 'content': record.orders });
+            localGptService.userContext.push({ 'role': 'system', 'content': record.inventory });
+            localGptService.userContext.push({ 'role': 'system', 'content': record.example });
+            localGptService.userContext.push({ 'role': 'system', 'content': `You can speak in many languages, but use default language ${record.language} for this conversation from now on! Remember it as the default language, even you change language in between. treat en-US and en-GB etc. as different languages.`});
           }
           
-          // Event listeners optimizados
+          // Set up event listeners for this GPT service
           localGptService.on('gptreply', async (gptReply, final, icount) => {
-            const replyTime = Date.now() - promptStartTime;
-            console.log(`⚡ ULTRA-FAST Reply (${replyTime}ms): ${gptReply.substring(0, 50)}...`.green);
-            addLog('gpt', `⚡ GPT Reply in ${replyTime}ms: ${gptReply}`);
+            console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply}`.green );
+            addLog('gpt', `GPT -> convrelay: Interaction ${icount}: ${gptReply}`);
             textService.sendText(gptReply, final);
           });
 
           localGptService.on('tools', async (functionName, functionArgs, functionResponse) => {
-            addLog('gpt', `Function ${functionName}: ${functionArgs}`);
+            addLog('gpt', `Function ${functionName} with args ${functionArgs}`);
+            addLog('gpt', `Function Response: ${functionResponse}`);
+
             if(functionName == 'changeLanguage' && record?.changeSTT){
-              addLog('convrelay', `Language change: ${functionArgs}`);
+              addLog('convrelay', `convrelay ChangeLanguage to: ${functionArgs}`);
               let jsonObj = JSON.parse(functionArgs);
               textService.setLang(jsonObj.language);
             }
           });
         }
         
-        // Disparo inmediato sin await para no bloquear
-        localGptService.completion(msg.voicePrompt, interactionCount).catch(err => {
-          console.error('⚡ Completion error:', err);
-        });
+        localGptService.completion(msg.voicePrompt, interactionCount);
         interactionCount += 1;
       } 
       
