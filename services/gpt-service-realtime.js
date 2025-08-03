@@ -1,3 +1,4 @@
+
 require('colors');
 const EventEmitter = require('events');
 const fetch = require('node-fetch');
@@ -14,7 +15,7 @@ class GptServiceRealtime extends EventEmitter {
       console.error('💡 Please set N8N_WEBHOOK_URL in your .env file');
     }
     
-    console.log(`GptServiceRealtime init with OpenAI API and N8N webhook: ${this.n8nWebhookUrl}`);
+    console.log(`🚀 [REALTIME] GptServiceRealtime initialized with webhook: ${this.n8nWebhookUrl}`);
   }
 
   async completion(text, interactionCount, role = 'user', name = 'user') {
@@ -29,25 +30,23 @@ class GptServiceRealtime extends EventEmitter {
     }
 
     try {
-      // Optimize payload - only send essential data
-      const optimizedPayload = {
-        message: text, // Simplified key
-        history: this.userContext.length > 0 ? this.userContext.slice(-3).map(ctx => `${ctx.role}:${ctx.content}`).join('|') : '', // Last 3 messages only
-        count: interactionCount,
-        realtime: true
+      const payload = {
+        currentMessage: text,
+        conversationHistory: this.userContext,
+        interactionCount: interactionCount,
+        realtime: true,
+        timestamp: Date.now()
       };
 
-      console.log('📤 [REALTIME] Sending optimized payload:', JSON.stringify(optimizedPayload).substring(0, 100) + '...');
+      console.log('📤 [REALTIME] Sending payload to N8N');
 
-      // Send to N8N with aggressive timeout
       const response = await fetch(this.n8nWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(optimizedPayload),
-        timeout: 5000, // 5 second timeout
-        keepalive: true // Keep connection alive
+        body: JSON.stringify(payload),
+        timeout: 10000
       });
 
       const requestTime = Date.now() - startTime;
@@ -57,17 +56,14 @@ class GptServiceRealtime extends EventEmitter {
         throw new Error(`N8N webhook error: ${response.status}`);
       }
 
-      // Handle response with timeout
       const result = await response.json();
       
       const totalTime = Date.now() - startTime;
       console.log(`⚡ [REALTIME] Total response time: ${totalTime}ms`);
       console.log('🔍 [REALTIME] Response:', result);
       
-      // Handle the response similar to standard service
       if (result.response) {
-        // Faster streaming simulation
-        await this.fastStreaming(result.response, interactionCount);
+        await this.streamResponse(result.response, interactionCount);
         this.userContext.push({'role': 'assistant', 'content': result.response});
       } else {
         throw new Error('No response content found');
@@ -99,29 +95,27 @@ class GptServiceRealtime extends EventEmitter {
   }
 
   interrupt() {
-    // Handle interruption for realtime
     console.log('Interrupt received in realtime mode');
   }
 
-  async fastStreaming(fullResponse, interactionCount) {
-    // Faster streaming - send larger chunks
+  async streamResponse(fullResponse, interactionCount) {
     const words = fullResponse.split(' ');
     let partialResponse = '';
     
     for (let i = 0; i < words.length; i++) {
       partialResponse += words[i] + ' ';
       
-      // Send chunk every 6-8 words for faster streaming
-      if (i % 6 === 0 || i === words.length - 1) {
+      if (i % 8 === 0 || i === words.length - 1) {
         const isLast = i === words.length - 1;
         this.emit('gptreply', partialResponse.trim(), isLast, interactionCount);
         partialResponse = '';
         
-        // Reduced delay for faster response
-        await new Promise(resolve => setTimeout(resolve, 50)); // 50ms instead of 100ms
+        if (!isLast) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
     }
   }
 }
 
-module.exports = { GptServiceRealtime }; 
+module.exports = { GptServiceRealtime };
