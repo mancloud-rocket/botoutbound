@@ -10,18 +10,6 @@ class GptServiceRealtime extends EventEmitter {
       process.env.N8N_WEBHOOK_URL ||
       "https://studio.rocketbot.com/webhook/e9e0142a7bdadfd9f3fbc32ac7cb2d77";
     this.userContext = [];
-    
-    // Optimización para detección rápida de fin de habla
-    this.isProcessing = false;
-    this.lastRequestTime = 0;
-    this.pendingResponse = null;
-    
-    // Configuración de streaming ultra rápido
-    this.fastStreamingConfig = {
-      wordsPerChunk: 3, // Menos palabras por chunk para respuesta más rápida
-      chunkDelay: 25,   // Delay mínimo entre chunks (25ms)
-      minChunkSize: 1   // Tamaño mínimo de chunk
-    };
 
     if (!this.n8nWebhookUrl) {
       console.error("❌ [ERROR] N8N_WEBHOOK_URL is not configured!");
@@ -29,84 +17,83 @@ class GptServiceRealtime extends EventEmitter {
     }
 
     console.log(
-      `🚀 [ULTRA-FAST] GptServiceRealtime optimizado para máxima velocidad: ${this.n8nWebhookUrl}`,
+      `GptServiceRealtime init with OpenAI API and N8N webhook: ${this.n8nWebhookUrl}`,
     );
   }
 
   async completion(text, interactionCount, role = "user", name = "user") {
     const startTime = Date.now();
-    
-    // Cancelar request anterior si está en proceso (optimización de velocidad)
-    if (this.isProcessing && this.pendingResponse) {
-      console.log("🔄 [ULTRA-FAST] Canceling previous request for immediate response");
-      this.pendingResponse = null;
-    }
-    
-    this.isProcessing = true;
-    this.lastRequestTime = startTime;
-    
-    console.log(`🚀 [ULTRA-FAST] Immediate completion start: ${text.substring(0, 50)}...`);
+    console.log("🚀 [REALTIME] Starting completion:", role, name, text);
 
     this.updateUserContext(name, role, text);
 
+    // Validate webhook URL
     if (!this.n8nWebhookUrl) {
       throw new Error("N8N_WEBHOOK_URL is not configured");
     }
 
     try {
-      // Payload ultra optimizado - solo lo esencial
-      const ultraMinimalPayload = {
-        msg: text,
-        ctx: this.userContext.slice(-2).map(c => `${c.role}:${c.content.substring(0, 100)}`).join("|"),
-        cnt: interactionCount,
-        rt: 1
+      // Optimize payload - only send essential data
+      const optimizedPayload = {
+        message: text, // Simplified key
+        history:
+          this.userContext.length > 0
+            ? this.userContext
+                .slice(-3)
+                .map((ctx) => `${ctx.role}:${ctx.content}`)
+                .join("|")
+            : "", // Last 3 messages only
+        count: interactionCount,
+        realtime: true,
       };
 
-      console.log(`📤 [ULTRA-FAST] Minimal payload (${JSON.stringify(ultraMinimalPayload).length} bytes)`);
+      console.log(
+        "📤 [REALTIME] Sending optimized payload:",
+        JSON.stringify(optimizedPayload).substring(0, 100) + "...",
+      );
 
-      // Request con configuración de máxima velocidad
-      const requestPromise = fetch(this.n8nWebhookUrl, {
+      // Send to N8N with aggressive timeout
+      const response = await fetch(this.n8nWebhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Connection": "keep-alive",
-          "Cache-Control": "no-cache"
         },
-        body: JSON.stringify(ultraMinimalPayload),
-        timeout: 10000,
-        agent: false, // Disable connection pooling for immediate response
-        highWaterMark: 0 // Immediate streaming
+        body: JSON.stringify(optimizedPayload),
+        timeout: 10000, // 5 second timeout
+        keepalive: true, // Keep connection alive
       });
 
-      this.pendingResponse = requestPromise;
-      const response = await requestPromise;
-
       const requestTime = Date.now() - startTime;
-      console.log(`⚡ [ULTRA-FAST] Network response: ${requestTime}ms`);
+      console.log(`⏱️ [REALTIME] Request completed in ${requestTime}ms`);
 
       if (!response.ok) {
-        throw new Error(`N8N error: ${response.status}`);
+        throw new Error(`N8N webhook error: ${response.status}`);
       }
 
+      // Handle response with timeout
       const result = await response.json();
-      const totalTime = Date.now() - startTime;
-      
-      console.log(`🎯 [ULTRA-FAST] Total: ${totalTime}ms | Response: ${result.response ? 'OK' : 'EMPTY'}`);
 
+      const totalTime = Date.now() - startTime;
+      console.log(`⚡ [REALTIME] Total response time: ${totalTime}ms`);
+      console.log("🔍 [REALTIME] Response:", result);
+
+      // Handle the response similar to standard service
       if (result.response) {
-        // Streaming inmediato con chunks mínimos
-        await this.ultraFastStreaming(result.response, interactionCount);
+        // Faster streaming simulation
+        await this.fastStreaming(result.response, interactionCount);
         this.userContext.push({ role: "assistant", content: result.response });
       } else {
         throw new Error("No response content found");
       }
     } catch (error) {
       const errorTime = Date.now() - startTime;
-      console.error(`❌ [ULTRA-FAST] Error ${errorTime}ms:`, error.message);
-      this.emit("gptreply", "Lo siento, hubo un error procesando tu solicitud.", true, interactionCount);
-    } finally {
-      this.isProcessing = false;
-      this.pendingResponse = null;
+      console.error(`❌ [REALTIME] Error after ${errorTime}ms:`, error);
+      this.emit(
+        "gptreply",
+        "Lo siento, hubo un error procesando tu solicitud.",
+        true,
+        interactionCount,
+      );
     }
   }
 
@@ -133,56 +120,24 @@ class GptServiceRealtime extends EventEmitter {
     console.log("Interrupt received in realtime mode");
   }
 
-  async ultraFastStreaming(fullResponse, interactionCount) {
+  async fastStreaming(fullResponse, interactionCount) {
+    // Faster streaming - send larger chunks
     const words = fullResponse.split(" ");
     let partialResponse = "";
-    const { wordsPerChunk, chunkDelay, minChunkSize } = this.fastStreamingConfig;
 
-    // Enviar primer chunk inmediatamente
-    if (words.length > 0) {
-      this.emit("gptreply", words[0], false, interactionCount);
-      
-      for (let i = 1; i < words.length; i++) {
-        partialResponse += words[i] + " ";
+    for (let i = 0; i < words.length; i++) {
+      partialResponse += words[i] + " ";
 
-        // Chunks más pequeños y frecuentes para máxima velocidad
-        if (i % wordsPerChunk === 0 || i === words.length - 1) {
-          const isLast = i === words.length - 1;
-          this.emit("gptreply", partialResponse.trim(), isLast, interactionCount);
-          partialResponse = "";
+      // Send chunk every 6-8 words for faster streaming
+      if (i % 6 === 0 || i === words.length - 1) {
+        const isLast = i === words.length - 1;
+        this.emit("gptreply", partialResponse.trim(), isLast, interactionCount);
+        partialResponse = "";
 
-          // Delay mínimo solo si no es el último chunk
-          if (!isLast) {
-            await new Promise((resolve) => setTimeout(resolve, chunkDelay));
-          }
-        }
+        // Reduced delay for faster response
+        await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms instead of 100ms
       }
     }
-  }
-
-  // Método optimizado para interrupciones inmediatas
-  interrupt() {
-    console.log("🛑 [ULTRA-FAST] Immediate interrupt - canceling all operations");
-    this.isProcessing = false;
-    if (this.pendingResponse) {
-      this.pendingResponse = null;
-    }
-  }
-
-  // Método para ajustar velocidad de streaming dinámicamente
-  setStreamingSpeed(speed = 'ultra-fast') {
-    switch(speed) {
-      case 'ultra-fast':
-        this.fastStreamingConfig = { wordsPerChunk: 2, chunkDelay: 20, minChunkSize: 1 };
-        break;
-      case 'fast':
-        this.fastStreamingConfig = { wordsPerChunk: 3, chunkDelay: 35, minChunkSize: 1 };
-        break;
-      case 'normal':
-        this.fastStreamingConfig = { wordsPerChunk: 5, chunkDelay: 50, minChunkSize: 2 };
-        break;
-    }
-    console.log(`🎛️ [STREAMING] Speed set to: ${speed}`, this.fastStreamingConfig);
   }
 }
 
