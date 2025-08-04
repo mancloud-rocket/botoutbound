@@ -83,24 +83,34 @@ class GptServiceRealtime extends EventEmitter {
         throw new Error(`N8N error: ${response.status}`);
       }
 
-      // Mejorar el manejo de respuestas JSON malformadas
+      // Manejo mejorado para respuestas con formato markdown de N8N
       let result;
       const responseText = await response.text();
       
       console.log(`📄 [DEBUG] Raw response (first 200 chars): ${responseText.substring(0, 200)}`);
       
       try {
-        // Intentar parsear como JSON
-        result = JSON.parse(responseText);
+        // Limpiar la respuesta de markdown/backticks antes de parsear
+        let cleanedResponse = responseText.trim();
+        
+        // Remover triple backticks al inicio y final si existen
+        if (cleanedResponse.startsWith('```')) {
+          cleanedResponse = cleanedResponse.replace(/^```\n?/, '').replace(/\n?```$/, '');
+          console.log(`🧹 [CLEANUP] Removed markdown backticks`);
+        }
+        
+        // Intentar parsear como JSON limpio
+        result = JSON.parse(cleanedResponse);
+        console.log(`✅ [JSON-SUCCESS] Parsed successfully`);
       } catch (parseError) {
         console.log(`❌ [JSON-ERROR] Parse failed: ${parseError.message}`);
         
-        // Intentar extraer JSON válido si hay interpolación de variables malformada
+        // Intentar extraer JSON válido de dentro del texto
         const jsonMatch = responseText.match(/\{.*\}/s);
         if (jsonMatch) {
           try {
             result = JSON.parse(jsonMatch[0]);
-            console.log(`✅ [JSON-RECOVERY] Extracted valid JSON`);
+            console.log(`✅ [JSON-RECOVERY] Extracted valid JSON from raw text`);
           } catch (extractError) {
             console.log(`❌ [JSON-RECOVERY] Extraction failed: ${extractError.message}`);
             // Usar respuesta de fallback
