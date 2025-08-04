@@ -99,6 +99,15 @@ class GptServiceRealtime extends EventEmitter {
           console.log(`🧹 [CLEANUP] Removed markdown backticks`);
         }
         
+        // Limpiar caracteres escapados y de nueva línea
+        cleanedResponse = cleanedResponse
+          .replace(/\\n/g, '')  // Remover \n escapados
+          .replace(/^\n+/, '')  // Remover \n al inicio
+          .replace(/\n+$/, '')  // Remover \n al final
+          .trim();
+        
+        console.log(`🧹 [CLEANUP] Cleaned response: ${cleanedResponse.substring(0, 100)}...`);
+        
         // Intentar parsear como JSON limpio
         result = JSON.parse(cleanedResponse);
         console.log(`✅ [JSON-SUCCESS] Parsed successfully`);
