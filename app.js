@@ -32,7 +32,7 @@ let record;
 // Function to select GPT service based on environment variable
 function createGptService(model) {
   const useRealtime = process.env.USE_REALTIME_API === 'true';
-  
+
   if (useRealtime) {
     console.log('🚀 [SERVICE] Using N8N Realtime API (Optimized)'.green);
     addLog('info', '🚀 [SERVICE] Using N8N Realtime API (Optimized)');
@@ -69,24 +69,24 @@ app.post('/incoming', async (req, res) => {
   try {
     logs.length = 0; // Clear logs
     addLog('info', 'incoming call started');
-    
+
     // Get latest record from airtable
     record = await getLatestRecord();
     // console.log('Get latest record ', record);
 
     // Initialize GPT service (standard or realtime)
     gptService = createGptService(record.model);
-    
+
     gptService.userContext.push({ 'role': 'system', 'content': record.sys_prompt });
     gptService.userContext.push({ 'role': 'system', 'content': record.profile });
     gptService.userContext.push({ 'role': 'system', 'content': record.orders });
     gptService.userContext.push({ 'role': 'system', 'content': record.inventory });
     gptService.userContext.push({ 'role': 'system', 'content': record.example });
     gptService.userContext.push({ 'role': 'system', 'content': `You can speak in many languages, but use default language es-ES for this conversation from now on! Remember it as the default language, even you change language in between. treat en-US and en-GB etc. as different languages.`});
-    
+
 
     addLog('info', `language : es-ES, voice : es-ES-Neural2-B, ttsProvider : google, transcriptionProvider : google`, );
-    
+
     const response = 
     `<Response>
       <Connect>
@@ -110,23 +110,23 @@ app.post('/incoming', async (req, res) => {
 app.post('/simple-response', async (req, res) => {
   try {
     addLog('info', 'Received simple response from RocketBot');
-    
+
     // Obtener el string de respuesta del body con múltiples fallbacks
     let responseText = 'No se recibió respuesta';
-    
+
     // Intentar diferentes formas de obtener la respuesta
     if (req.body && typeof req.body === 'object') {
       responseText = req.body.response || req.body.text || req.body.message || req.body.content || 'No se recibió respuesta';
     } else if (typeof req.body === 'string') {
       responseText = req.body;
     }
-    
+
     // Limpiar y validar la respuesta
     responseText = responseText.toString().trim();
     if (!responseText || responseText === 'No se recibió respuesta') {
       responseText = 'Hola, soy tu asistente virtual. ¿En qué puedo ayudarte?';
     }
-    
+
     // Escapar caracteres especiales para XML
     responseText = responseText
       .replace(/&/g, '&amp;')
@@ -134,24 +134,24 @@ app.post('/simple-response', async (req, res) => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
-    
+
     addLog('info', `RocketBot response processed: ${responseText}`);
-    
+
     // Construir TwiML con la respuesta
     const twimlResponse = 
     `<Response>
       <Say voice="es-ES-Neural2-B">${responseText}</Say>
     </Response>`;
-    
+
     // Configurar headers para evitar problemas de encoding
     res.set({
       'Content-Type': 'text/xml; charset=utf-8',
       'Cache-Control': 'no-cache',
       'Access-Control-Allow-Origin': '*'
     });
-    
+
     res.status(200).send(twimlResponse);
-    
+
   } catch (err) {
     console.error('Error in /simple-response:', err);
     // Respuesta de error en TwiML con headers apropiados
@@ -167,25 +167,25 @@ app.post('/simple-response', async (req, res) => {
 app.post('/ultra-simple', async (req, res) => {
   try {
     addLog('info', 'Received ultra-simple response from RocketBot');
-    
+
     // Respuesta estática simple para evitar problemas
     const responseText = 'Hola, soy tu asistente virtual de Owl Shoes. ¿En qué puedo ayudarte hoy?';
-    
+
     addLog('info', `Using static response: ${responseText}`);
-    
+
     // TwiML simple y limpio
     const twimlResponse = 
     `<Response>
       <Say voice="es-ES-Neural2-B">${responseText}</Say>
     </Response>`;
-    
+
     // Headers mínimos para evitar problemas
     res.set({
       'Content-Type': 'text/xml; charset=utf-8'
     });
-    
+
     res.status(200).send(twimlResponse);
-    
+
   } catch (err) {
     console.error('Error in /ultra-simple:', err);
     res.set({
@@ -214,7 +214,7 @@ app.ws('/sockets', (ws) => {
     textService = new TextService(ws);
 
     let interactionCount = 0;
-    
+
     // Incoming from MediaStream
     ws.on('message', function message(data) {
       const msg = JSON.parse(data);
@@ -222,13 +222,13 @@ app.ws('/sockets', (ws) => {
       if (msg.type === 'setup') {
         addLog('convrelay', `convrelay socket setup ${msg.callSid}`);
         callSid = msg.callSid;
-        
+
         // Initialize GPT service if not already done
         if (!localGptService) {
           // Use global gptService if available, otherwise create a new one
           const model = record?.model || 'gpt-4o';
           localGptService = gptService || createGptService(model);
-          
+
           // If we're creating a new GPT service and have record data, set up the context
           if (!gptService && record) {
             localGptService.userContext.push({ 'role': 'system', 'content': record.sys_prompt });
@@ -238,7 +238,7 @@ app.ws('/sockets', (ws) => {
             localGptService.userContext.push({ 'role': 'system', 'content': record.example });
             localGptService.userContext.push({ 'role': 'system', 'content': `You can speak in many languages, but use default language ${record.language} for this conversation from now on! Remember it as the default language, even you change language in between. treat en-US and en-GB etc. as different languages.`});
           }
-          
+
           // Set up event listeners for this GPT service
           localGptService.on('gptreply', async (gptReply, final, icount) => {
             console.log(`Interaction ${icount}: GPT -> TTS: ${gptReply}`.green );
@@ -257,7 +257,7 @@ app.ws('/sockets', (ws) => {
             }
           });
         }
-        
+
         localGptService.setCallInfo('user phone number', msg.from);
 
         //trigger gpt to start 
@@ -270,23 +270,23 @@ app.ws('/sockets', (ws) => {
           });
         }
       }  
-      
+
       if (msg.type === 'prompt') {
         const promptStartTime = Date.now();
         addLog('convrelay', `⚡ PROMPT RECEIVED (${msg.lang}): ${msg.voicePrompt.substring(0, 50)}...`);
-        
+
         // Initialize GPT service if not already done (for direct testing)
         if (!localGptService) {
           const model = record?.model || 'gpt-4o';
           localGptService = gptService || createGptService(model);
-          
+
           // Contexto ultra-comprimido para máxima velocidad
           if (!gptService && record) {
             // Solo el prompt esencial y perfil básico
             localGptService.userContext.push({ 'role': 'system', 'content': record.sys_prompt?.substring(0, 500) || 'You are Owl Shoes assistant' });
             localGptService.userContext.push({ 'role': 'system', 'content': `Language: ${record.language || 'es-ES'}` });
           }
-          
+
           // Event listeners optimizados
           localGptService.on('gptreply', async (gptReply, final, icount) => {
             const replyTime = Date.now() - promptStartTime;
@@ -304,14 +304,14 @@ app.ws('/sockets', (ws) => {
             }
           });
         }
-        
+
         // Disparo inmediato sin await para no bloquear
         localGptService.completion(msg.voicePrompt, interactionCount).catch(err => {
           console.error('⚡ Completion error:', err);
         });
         interactionCount += 1;
       } 
-      
+
       if (msg.type === 'interrupt') {
         addLog('convrelay', 'convrelay interrupt: utteranceUntilInterrupt: ' + msg.utteranceUntilInterrupt + ' durationUntilInterruptMs: ' + msg.durationUntilInterruptMs);
         if (localGptService) {
@@ -322,13 +322,13 @@ app.ws('/sockets', (ws) => {
 
       if (msg.type === 'error') {
         addLog('convrelay', 'convrelay error: ' + msg.description);
-        
+
         console.log('Todo: add error handling');
       }
 
       if (msg.type === 'dtmf') {
         addLog('convrelay', 'convrelay dtmf: ' + msg.digit);
-        
+
         console.log('Todo: add dtmf handling');
       }
 
