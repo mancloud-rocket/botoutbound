@@ -101,9 +101,11 @@ class GptServiceRealtime extends EventEmitter {
         
         // Limpiar caracteres escapados y de nueva línea
         cleanedResponse = cleanedResponse
-          .replace(/\\n/g, '')  // Remover \n escapados
-          .replace(/^\n+/, '')  // Remover \n al inicio
-          .replace(/\n+$/, '')  // Remover \n al final
+          .replace(/\\n/g, '')     // Remover \n escapados
+          .replace(/\\"/g, '"')    // Convertir \" a "
+          .replace(/\\'/g, "'")    // Convertir \' a '
+          .replace(/^\n+/, '')     // Remover \n al inicio
+          .replace(/\n+$/, '')     // Remover \n al final
           .trim();
         
         console.log(`🧹 [CLEANUP] Cleaned response: ${cleanedResponse.substring(0, 100)}...`);
