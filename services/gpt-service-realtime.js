@@ -88,9 +88,36 @@ class GptServiceRealtime extends EventEmitter {
         throw new Error(`N8N error: ${response.status}`);
       }
 
-      const result = await response.json();
-      const totalTime = Date.now() - startTime;
+      // Mejorar el manejo de respuestas JSON malformadas
+      let result;
+      const responseText = await response.text();
       
+      console.log(`📄 [DEBUG] Raw response (first 200 chars): ${responseText.substring(0, 200)}`);
+      
+      try {
+        // Intentar parsear como JSON
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.log(`❌ [JSON-ERROR] Parse failed: ${parseError.message}`);
+        
+        // Intentar extraer JSON válido si hay interpolación de variables malformada
+        const jsonMatch = responseText.match(/\{.*\}/s);
+        if (jsonMatch) {
+          try {
+            result = JSON.parse(jsonMatch[0]);
+            console.log(`✅ [JSON-RECOVERY] Extracted valid JSON`);
+          } catch (extractError) {
+            console.log(`❌ [JSON-RECOVERY] Extraction failed: ${extractError.message}`);
+            // Usar respuesta de fallback
+            result = { response: "Disculpa, hay un problema técnico temporal. ¿Puedes repetir tu pregunta?" };
+          }
+        } else {
+          // Si no se puede extraer JSON, usar el texto como respuesta
+          result = { response: responseText.length > 0 ? responseText : "Lo siento, hubo un error de comunicación." };
+        }
+      }
+      
+      const totalTime = Date.now() - startTime;
       console.log(`🎯 [ULTRA-FAST] Total: ${totalTime}ms | Response: ${result.response ? 'OK' : 'EMPTY'}`);
 
       if (result.response) {
@@ -103,7 +130,14 @@ class GptServiceRealtime extends EventEmitter {
     } catch (error) {
       const errorTime = Date.now() - startTime;
       console.error(`❌ [ULTRA-FAST] Error ${errorTime}ms:`, error.message);
-      this.emit("gptreply", "Lo siento, hubo un error procesando tu solicitud.", true, interactionCount);
+      
+      // Log adicional para debug
+      if (error.message.includes('invalid json')) {
+        console.error(`🔍 [DEBUG] JSON Error details: N8N webhook might be returning malformed JSON`);
+        console.error(`🔍 [DEBUG] Check N8N webhook configuration for variable interpolation issues`);
+      }
+      
+      this.emit("gptreply", "Disculpa, hay un problema técnico con el servidor. Por favor, intenta reformular tu pregunta.", true, interactionCount);
     } finally {
       this.isProcessing = false;
       this.pendingResponse = null;
