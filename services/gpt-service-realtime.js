@@ -16,12 +16,7 @@ class GptServiceRealtime extends EventEmitter {
     this.lastRequestTime = 0;
     this.pendingResponse = null;
     
-    // Configuración de streaming ultra rápido
-    this.fastStreamingConfig = {
-      wordsPerChunk: 3, // Menos palabras por chunk para respuesta más rápida
-      chunkDelay: 25,   // Delay mínimo entre chunks (25ms)
-      minChunkSize: 1   // Tamaño mínimo de chunk
-    };
+    
 
     if (!this.n8nWebhookUrl) {
       console.error("❌ [ERROR] N8N_WEBHOOK_URL is not configured!");
@@ -121,8 +116,9 @@ class GptServiceRealtime extends EventEmitter {
       console.log(`🎯 [ULTRA-FAST] Total: ${totalTime}ms | Response: ${result.response ? 'OK' : 'EMPTY'}`);
 
       if (result.response) {
-        // Streaming inmediato con chunks mínimos
-        await this.ultraFastStreaming(result.response, interactionCount);
+        // Envío inmediato de respuesta completa sin streaming artificial
+        console.log(`🚀 [INSTANT] Sending complete response immediately`);
+        this.emit("gptreply", result.response, true, interactionCount);
         this.userContext.push({ role: "assistant", content: result.response });
       } else {
         throw new Error("No response content found");
@@ -167,32 +163,7 @@ class GptServiceRealtime extends EventEmitter {
     console.log("Interrupt received in realtime mode");
   }
 
-  async ultraFastStreaming(fullResponse, interactionCount) {
-    const words = fullResponse.split(" ");
-    let partialResponse = "";
-    const { wordsPerChunk, chunkDelay, minChunkSize } = this.fastStreamingConfig;
-
-    // Enviar primer chunk inmediatamente
-    if (words.length > 0) {
-      this.emit("gptreply", words[0], false, interactionCount);
-      
-      for (let i = 1; i < words.length; i++) {
-        partialResponse += words[i] + " ";
-
-        // Chunks más pequeños y frecuentes para máxima velocidad
-        if (i % wordsPerChunk === 0 || i === words.length - 1) {
-          const isLast = i === words.length - 1;
-          this.emit("gptreply", partialResponse.trim(), isLast, interactionCount);
-          partialResponse = "";
-
-          // Delay mínimo solo si no es el último chunk
-          if (!isLast) {
-            await new Promise((resolve) => setTimeout(resolve, chunkDelay));
-          }
-        }
-      }
-    }
-  }
+  
 
   // Método optimizado para interrupciones inmediatas
   interrupt() {
@@ -203,21 +174,7 @@ class GptServiceRealtime extends EventEmitter {
     }
   }
 
-  // Método para ajustar velocidad de streaming dinámicamente
-  setStreamingSpeed(speed = 'ultra-fast') {
-    switch(speed) {
-      case 'ultra-fast':
-        this.fastStreamingConfig = { wordsPerChunk: 2, chunkDelay: 20, minChunkSize: 1 };
-        break;
-      case 'fast':
-        this.fastStreamingConfig = { wordsPerChunk: 3, chunkDelay: 35, minChunkSize: 1 };
-        break;
-      case 'normal':
-        this.fastStreamingConfig = { wordsPerChunk: 5, chunkDelay: 50, minChunkSize: 2 };
-        break;
-    }
-    console.log(`🎛️ [STREAMING] Speed set to: ${speed}`, this.fastStreamingConfig);
-  }
+  
 }
 
 module.exports = { GptServiceRealtime };
