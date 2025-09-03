@@ -185,7 +185,7 @@ app.post("/ultra-simple", async (req, res) => {
 
     // Respuesta estática simple para evitar problemas
     const responseText =
-      "Hola, soy tu asistente virtual de Owl Shoes. ¿En qué puedo ayudarte hoy?";
+      "Hola, soy Rocket, tu asistente virtual. ¿En qué puedo ayudarte hoy?";
 
     addLog("info", `Using static response: ${responseText}`);
 
@@ -343,8 +343,8 @@ app.ws("/sockets", (ws) => {
               role: "system",
               content:
                 record.sys_prompt ||
-                "Eres María, una asistente humana de Rocketbot. SIEMPRE inicia la conversación presentándote con tu nombre completo: '¡Hola! Soy María de Rocketbot, una IA creada con Rocketbot SaturnStudio' y luego pregunta al cliente de manera cálida en qué puedes ayudarle.",
-            });
+                "Eres Rocket, un asistente humano de Rocketbot. SIEMPRE inicia la conversación es ayudarle.",
+            });presentándote con tu nombre completo: '¡Hola! Soy Rocket de Rocketbot, un agente IA creado con Rocketbot SaturnStudio' y luego pregunta al cliente de manera cálida en qué pued
             localGptService.userContext.push({
               role: "system",
               content: `Language: ${record.language || "es-ES"}`,
@@ -569,7 +569,7 @@ app.ws("/outbound-sockets", (ws) => {
     let interactionCount = 0;
     let callStartTime = null; // Track when call starts
     let userInputEnabled = false; // Flag to control when to listen to user
-    let mariaIsSpeaking = false; // Track if María is currently speaking
+    let rocketIsSpeaking = false; // Track if Rocket is currently speaking
 
     ws.on("message", function message(data) {
       console.log("📨 [OUTBOUND-WEBSOCKET] Received message, data type:", typeof data);
@@ -606,7 +606,7 @@ app.ws("/outbound-sockets", (ws) => {
           // Usar record global si está disponible, sino crear uno básico
           if (!record) {
             record = {
-              sys_prompt: "Eres María de Rocketbot, una IA creada con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025.",
+              sys_prompt: "Eres Rocket de Rocketbot, un agente IA masculino creado con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025.",
               profile: "Customer profile information",
               orders: "Order history",
               inventory: "Available products",
@@ -619,10 +619,10 @@ app.ws("/outbound-sockets", (ws) => {
           gptService = createGptService(record.model);
           
           // Configurar contexto mínimo para máxima velocidad
-          gptService.userContext.push({ role: "system", content: record.sys_prompt || "Eres María de Rocketbot, una IA creada con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025." });
+          gptService.userContext.push({ role: "system", content: record.sys_prompt || "Eres Rocket de Rocketbot, un agente IA creado con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025." });
           gptService.userContext.push({ 
             role: "system", 
-            content: `Esta es una llamada SALIENTE. Estás llamando al cliente. Tu objetivo es CONFIRMAR la asistencia al Summit Rocketbot 2025. Sé amable y preséntate como María, una IA creada con Rocketbot SaturnStudio.` 
+            content: `Esta es una llamada SALIENTE. Estás llamando al cliente. Tu objetivo es CONFIRMAR la asistencia al Summit Rocketbot 2025. Sé amable y preséntate como Rocket, un agente IA creado con Rocketbot SaturnStudio.` 
           });
         } catch (error) {
           console.error("Error configuring context:", error);
@@ -637,11 +637,11 @@ app.ws("/outbound-sockets", (ws) => {
           if (!gptService && record) {
             localGptService.userContext.push({
               role: "system",
-              content: record.sys_prompt || "Eres María de Rocketbot, una IA creada con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025.",
+              content: record.sys_prompt || "Eres Rocket de Rocketbot, un agente IA creado con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025.",
             });
             localGptService.userContext.push({
               role: "system",
-              content: `Esta es una llamada SALIENTE. Estás llamando al cliente. Tu objetivo es CONFIRMAR la asistencia al Summit Rocketbot 2025. Sé amable y preséntate como María de Rocketbot, una IA creada con Rocketbot SaturnStudio.`,
+              content: `Esta es una llamada SALIENTE. Estás llamando al cliente. Tu objetivo es CONFIRMAR la asistencia al Summit Rocketbot 2025. Sé amable y preséntate como Rocket de Rocketbot, un agente IA creado con Rocketbot SaturnStudio.`,
             });
           }
 
@@ -650,18 +650,18 @@ app.ws("/outbound-sockets", (ws) => {
             console.log(`Outbound Interaction ${icount}: GPT -> TTS: ${gptReply}`.green);
             addLog("gpt", `Outbound GPT -> convrelay: Interaction ${icount}: ${gptReply}`);
             
-            // Track María's speaking status
-            if (!mariaIsSpeaking) {
-              mariaIsSpeaking = true;
-              console.log("🎤 [MARIA-STATUS] María started speaking - user input disabled");
+            // Track Rocket's speaking status
+            if (!rocketIsSpeaking) {
+              rocketIsSpeaking = true;
+              console.log("🎤 [ROCKET-STATUS] Rocket started speaking - user input disabled");
             }
             
             textService.sendText(gptReply, final);
             
-            // If this is the final part of the message, María finished speaking
+            // If this is the final part of the message, Rocket finished speaking
             if (final) {
-              mariaIsSpeaking = false;
-              console.log("🎤 [MARIA-STATUS] María finished speaking - user input will be enabled");
+              rocketIsSpeaking = false;
+              console.log("🎤 [ROCKET-STATUS] Rocket finished speaking - user input will be enabled");
             }
           });
 
@@ -717,12 +717,12 @@ app.ws("/outbound-sockets", (ws) => {
       if (msg.type === "prompt") {
         const promptStartTime = Date.now();
         
-        // Check if user input should be ignored (first 5 seconds OR while María is speaking)
-        if (!userInputEnabled || mariaIsSpeaking) {
+        // Check if user input should be ignored (first 5 seconds OR while Rocket is speaking)
+        if (!userInputEnabled || rocketIsSpeaking) {
           const timeElapsed = promptStartTime - callStartTime;
           const reason = !userInputEnabled ? 
             `initial period (${timeElapsed}ms elapsed, need 5000ms)` : 
-            'María is currently speaking';
+            'Rocket is currently speaking';
           console.log(`🚫 [OUTBOUND-IGNORE] Ignoring user input during ${reason}: "${msg.voicePrompt.substring(0, 30)}..."`);
           addLog("convrelay", `🚫 Ignoring user input during ${reason}: "${msg.voicePrompt.substring(0, 30)}..."`);
           return; // Ignore this prompt completely
@@ -737,7 +737,7 @@ app.ws("/outbound-sockets", (ws) => {
           if (!gptService && record) {
             localGptService.userContext.push({
               role: "system",
-              content: record.sys_prompt || "Eres María de Rocketbot, una IA creada con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025.",
+              content: record.sys_prompt || "Eres Rocket de Rocketbot, un agente IA creado con Rocketbot SaturnStudio. Tu META PRINCIPAL es confirmar la asistencia al Summit Rocketbot 2025.",
             });
             localGptService.userContext.push({
               role: "system",
@@ -745,7 +745,7 @@ app.ws("/outbound-sockets", (ws) => {
             });
             localGptService.userContext.push({
               role: "system",
-              content: "Esta es una llamada SALIENTE. Estás llamando al cliente. Tu objetivo es CONFIRMAR la asistencia al Summit Rocketbot 2025. Preséntate como María de Rocketbot.",
+              content: "Esta es una llamada SALIENTE. Estás llamando al cliente. Tu objetivo es CONFIRMAR la asistencia al Summit Rocketbot 2025. Preséntate como Rocket de Rocketbot.",
             });
           }
 
@@ -754,18 +754,18 @@ app.ws("/outbound-sockets", (ws) => {
             console.log(`⚡ OUTBOUND Reply (${replyTime}ms): ${gptReply.substring(0, 50)}...`.green);
             addLog("gpt", `⚡ Outbound GPT Reply in ${replyTime}ms: ${gptReply}`);
             
-            // Track María's speaking status
-            if (!mariaIsSpeaking) {
-              mariaIsSpeaking = true;
-              console.log("🎤 [MARIA-STATUS] María started speaking - user input disabled");
+            // Track Rocket's speaking status
+            if (!rocketIsSpeaking) {
+              rocketIsSpeaking = true;
+              console.log("🎤 [ROCKET-STATUS] Rocket started speaking - user input disabled");
             }
             
             textService.sendText(gptReply, final);
             
-            // If this is the final part of the message, María finished speaking
+            // If this is the final part of the message, Rocket finished speaking
             if (final) {
-              mariaIsSpeaking = false;
-              console.log("🎤 [MARIA-STATUS] María finished speaking - user input will be enabled");
+              rocketIsSpeaking = false;
+              console.log("🎤 [ROCKET-STATUS] Rocket finished speaking - user input will be enabled");
             }
           });
 
@@ -1078,7 +1078,7 @@ app.post("/test-hybrid-tts", async (req, res) => {
     const { HybridTTSService } = require('./services/hybrid-tts-service');
     const hybridTTS = new HybridTTSService();
 
-    const { text = "Hola, soy el asistente virtual de Owl Shoes. ¿En qué puedo ayudarte?" } = req.body;
+    const { text = "Hola, soy Rocket, tu asistente virtual. ¿En qué puedo ayudarte?" } = req.body;
 
     console.log(`🎤 [HYBRID-TTS] Testing with text: ${text.substring(0, 50)}...`);
     console.log(`🎤 [HYBRID-TTS] Service info:`, hybridTTS.getServiceInfo());
