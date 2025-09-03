@@ -1050,8 +1050,8 @@ app.post("/test-your-voice", async (req, res) => {
     const { ElevenLabsService } = require('./services/elevenlabs-service');
     const elevenLabs = new ElevenLabsService();
 
-    const { text = "Hola, soy el asistente virtual de Owl Shoes. ¿En qué puedo ayudarte?" } = req.body;
-    const voiceId = 'JM2A9JbRp8XUJ7bdCXJc';
+    const { text = "Hola, soy tu asistente virtual. ¿En qué puedo ayudarte?" } = req.body;
+    const voiceId = process.env.ELEVENLABS_VOICE_ID;
 
     console.log(`🎤 [YOUR-VOICE] Testing voice ${voiceId} with text: ${text.substring(0, 50)}...`);
 

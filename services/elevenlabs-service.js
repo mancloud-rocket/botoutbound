@@ -38,7 +38,7 @@ class ElevenLabsService {
   /**
    * Generar audio a partir de texto
    */
-  async textToSpeech(text, voiceId = 'JM2A9JbRp8XUJ7bdCXJc', options = {}) {
+  async textToSpeech(text, voiceId = process.env.ELEVENLABS_VOICE_ID, options = {}) {
     try {
       const payload = {
         text: text,
@@ -115,7 +115,7 @@ class ElevenLabsService {
   getRecommendedSpanishVoices() {
     return [
       {
-        id: 'JM2A9JbRp8XUJ7bdCXJc',
+        id: process.env.ELEVENLABS_VOICE_ID || 'JM2A9JbRp8XUJ7bdCXJc',
         name: 'Tu Voz Seleccionada',
         description: 'Voz personalizada seleccionada por el usuario'
       },

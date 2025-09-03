@@ -1,0 +1,5 @@
+[33mb6fe13e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m optimised
+[33m93c1f76[m Assistant checkpoint: Mejorar parsing de caracteres escapados
+[33m1ee51f5[m Assistant checkpoint: Mejorar limpieza de respuesta JSON
+[33m4a91099[m Assistant checkpoint: Mejorar parseo JSON para manejar formato markdown
+[33mcab4d96[m Assistant checkpoint: Eliminar streaming artificial para máxima velocidad

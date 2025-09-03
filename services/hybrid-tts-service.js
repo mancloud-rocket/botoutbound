@@ -4,7 +4,7 @@ class HybridTTSService {
   constructor() {
     this.elevenLabs = new ElevenLabsService();
     this.useElevenLabs = process.env.USE_ELEVENLABS === 'true';
-    this.defaultVoiceId = process.env.ELEVENLABS_VOICE_ID || 'JM2A9JbRp8XUJ7bdCXJc';
+    this.defaultVoiceId = process.env.ELEVENLABS_VOICE_ID;
     
     console.log(`🎤 [HYBRID-TTS] Service initialized`);
     console.log(`🎤 [HYBRID-TTS] Use ElevenLabs: ${this.useElevenLabs}`);
