@@ -8,7 +8,7 @@ class GptServiceRealtime extends EventEmitter {
     this.openaiApiKey = process.env.OPENAI_API_KEY;
     this.n8nWebhookUrl =
       process.env.N8N_WEBHOOK_URL ||
-      "https://studio.rocketbot.com/webhook/e9e0142a7bdadfd9f3fbc32ac7cb2d77";
+      "https://studio.rocketbot.com/webhook/7dd0066135d7fbdae8c859bac14bd470";
     this.userContext = [];
     
     // Optimización para detección rápida de fin de habla
@@ -49,15 +49,19 @@ class GptServiceRealtime extends EventEmitter {
     }
 
     try {
-      // Payload ultra optimizado - solo lo esencial
-      const ultraMinimalPayload = {
+      // Payload con historia completa de la conversación
+      const fullConversationPayload = {
         msg: text,
-        ctx: this.userContext.slice(-2).map(c => `${c.role}:${c.content.substring(0, 100)}`).join("|"),
+        ctx: this.userContext.map(c => `${c.role}:${c.content}`).join("|"),
         cnt: interactionCount,
-        rt: 1
+        rt: 1,
+        lang: "es-ES",
+        fullHistory: true
       };
 
-      console.log(`📤 [ULTRA-FAST] Minimal payload (${JSON.stringify(ultraMinimalPayload).length} bytes)`);
+      console.log(`📤 [FULL-HISTORY] Full conversation payload (${JSON.stringify(fullConversationPayload).length} bytes)`);
+      console.log(`📤 [FULL-HISTORY] Context length: ${this.userContext.length} messages`);
+      console.log(`📤 [FULL-HISTORY] Full context being sent:`, this.userContext.map(c => `${c.role}: ${c.content.substring(0, 100)}...`));
 
       // Request con configuración de máxima velocidad
       const requestPromise = fetch(this.n8nWebhookUrl, {
@@ -67,7 +71,7 @@ class GptServiceRealtime extends EventEmitter {
           "Connection": "keep-alive",
           "Cache-Control": "no-cache"
         },
-        body: JSON.stringify(ultraMinimalPayload),
+        body: JSON.stringify(fullConversationPayload),
         timeout: 10000,
         agent: false, // Disable connection pooling for immediate response
         highWaterMark: 0 // Immediate streaming
@@ -87,7 +91,7 @@ class GptServiceRealtime extends EventEmitter {
       let result;
       const responseText = await response.text();
       
-      console.log(`📄 [DEBUG] Raw response (first 200 chars): ${responseText.substring(0, 200)}`);
+      console.log(`📄 [DEBUG] Raw response (COMPLETE): ${responseText}`);
       
       try {
         // Limpiar la respuesta de markdown/backticks antes de parsear
@@ -99,25 +103,53 @@ class GptServiceRealtime extends EventEmitter {
           console.log(`🧹 [CLEANUP] Removed markdown backticks`);
         }
         
-        // Limpiar caracteres escapados y de nueva línea
-        cleanedResponse = cleanedResponse
-          .replace(/\\n/g, '')     // Remover \n escapados
-          .replace(/\\"/g, '"')    // Convertir \" a "
-          .replace(/\\'/g, "'")    // Convertir \' a '
-          .replace(/^\n+/, '')     // Remover \n al inicio
-          .replace(/\n+$/, '')     // Remover \n al final
-          .trim();
-        
-        console.log(`🧹 [CLEANUP] Cleaned response: ${cleanedResponse.substring(0, 100)}...`);
-        
-        // Intentar parsear como JSON limpio
-        result = JSON.parse(cleanedResponse);
-        console.log(`✅ [JSON-SUCCESS] Parsed successfully`);
+        // Buscar el primer JSON válido en la respuesta
+        const jsonStart = cleanedResponse.indexOf('{');
+        if (jsonStart !== -1) {
+          // Encontrar el final del JSON (última llave de cierre)
+          let braceCount = 0;
+          let jsonEnd = -1;
+          
+          for (let i = jsonStart; i < cleanedResponse.length; i++) {
+            if (cleanedResponse[i] === '{') braceCount++;
+            if (cleanedResponse[i] === '}') {
+              braceCount--;
+              if (braceCount === 0) {
+                jsonEnd = i + 1;
+                break;
+              }
+            }
+          }
+          
+          if (jsonEnd !== -1) {
+            const jsonOnly = cleanedResponse.substring(jsonStart, jsonEnd);
+            console.log(`🧹 [CLEANUP] Extracted JSON only: ${jsonOnly}`);
+            
+            // Limpiar caracteres escapados y de nueva línea
+            const finalJson = jsonOnly
+              .replace(/\\n/g, '')     // Remover \n escapados
+              .replace(/\\"/g, '"')    // Convertir \" a "
+              .replace(/\\'/g, "'")    // Convertir \' a '
+              .replace(/^\n+/, '')     // Remover \n al inicio
+              .replace(/\n+$/, '')     // Remover \n al final
+              .trim();
+            
+            console.log(`🧹 [CLEANUP] Final cleaned JSON: ${finalJson}`);
+            
+            // Intentar parsear como JSON limpio
+            result = JSON.parse(finalJson);
+            console.log(`✅ [JSON-SUCCESS] Parsed successfully`);
+          } else {
+            throw new Error("Could not find complete JSON structure");
+          }
+        } else {
+          throw new Error("No JSON structure found in response");
+        }
       } catch (parseError) {
         console.log(`❌ [JSON-ERROR] Parse failed: ${parseError.message}`);
         
-        // Intentar extraer JSON válido de dentro del texto
-        const jsonMatch = responseText.match(/\{.*\}/s);
+        // Intentar extraer JSON válido de dentro del texto usando regex más robusto
+        const jsonMatch = responseText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s);
         if (jsonMatch) {
           try {
             result = JSON.parse(jsonMatch[0]);
@@ -137,8 +169,45 @@ class GptServiceRealtime extends EventEmitter {
       console.log(`🎯 [ULTRA-FAST] Total: ${totalTime}ms | Response: ${result.response ? 'OK' : 'EMPTY'}`);
 
       if (result.response) {
-        // Envío inmediato de respuesta completa sin streaming artificial
+        // Check if we should end the call (confirmed "yes" OR closing "yes")
+        const shouldEndCall = (result.confirmed === "yes" || result.closing === "yes") || 
+                             (typeof result === 'object' && (result.confirmed === "yes" || result.closing === "yes"));
+        
+        if (shouldEndCall) {
+          const isConfirmed = result.confirmed === "yes";
+          const reason = isConfirmed ? 'Summit attendance confirmed' : 'Summit attendance declined - closing';
+          
+          console.log(`🎉 ${isConfirmed ? 'CONFIRMED' : 'DECLINED'} Summit attendance! Ending call immediately...`);
+          
+          // Send the response first
+          console.log(`🚀 [INSTANT] Sending final response`);
+          console.log(`📝 [FINAL RESPONSE] Complete response:`, result.response);
+          this.emit("gptreply", result.response, true, interactionCount);
+          this.userContext.push({ role: "assistant", content: result.response });
+          
+          // Emit endCall event immediately after message
+          this.emit('endCall', {
+            reason: reason,
+            confirmed: isConfirmed,
+            timestamp: new Date().toISOString()
+          });
+          
+          return; // Exit early to prevent further processing
+        }
+        
+        // Normal processing for other responses
         console.log(`🚀 [INSTANT] Sending complete response immediately`);
+        console.log(`📝 [FULL RESPONSE] Complete response:`, result.response);
+        console.log(`📏 [RESPONSE LENGTH] Response length: ${result.response.length} characters`);
+        
+        // Log confirmation status if present
+        if (result.confirmed) {
+          console.log('Confirmation status:', result.confirmed);
+        }
+        if (result.closing) {
+          console.log('Closing status:', result.closing);
+        }
+        
         this.emit("gptreply", result.response, true, interactionCount);
         this.userContext.push({ role: "assistant", content: result.response });
       } else {
@@ -168,10 +237,16 @@ class GptServiceRealtime extends EventEmitter {
       this.userContext.push({ role: role, content: text });
     }
 
-    // Keep only last 10 messages to reduce memory
-    if (this.userContext.length > 10) {
-      this.userContext = this.userContext.slice(-10);
+    // Mantener toda la historia de la conversación (hasta 50 mensajes para evitar límites)
+    if (this.userContext.length > 50) {
+      console.log(`📝 [FULL-HISTORY] Trimming context from ${this.userContext.length} to 50 messages`);
+      // Mantener los primeros 10 (sistema) y los últimos 40 (conversación)
+      const systemMessages = this.userContext.slice(0, 10);
+      const recentMessages = this.userContext.slice(-40);
+      this.userContext = [...systemMessages, ...recentMessages];
     }
+    
+    console.log(`📝 [FULL-HISTORY] Context updated: ${this.userContext.length} messages total`);
   }
 
   setCallInfo(info, value) {
@@ -180,19 +255,11 @@ class GptServiceRealtime extends EventEmitter {
   }
 
   interrupt() {
-    // Handle interruption for realtime
-    console.log("Interrupt received in realtime mode");
-  }
-
-  
-
-  // Método optimizado para interrupciones inmediatas
-  interrupt() {
-    console.log("🛑 [ULTRA-FAST] Immediate interrupt - canceling all operations");
-    this.isProcessing = false;
-    if (this.pendingResponse) {
-      this.pendingResponse = null;
-    }
+    // Interruptions disabled for outbound calls to ensure complete message delivery
+    console.log("🚫 [ULTRA-FAST] Interrupt ignored - maintaining message flow for outbound calls");
+    // Do not cancel operations or set isProcessing to false
+    // Do not clear pendingResponse
+    return;
   }
 
   

@@ -25,7 +25,7 @@ class GptService extends EventEmitter {
       // { 'role': 'system', 'content': prompt },
       // { 'role': 'system', 'content': userProfile },
       // { 'role': 'system', 'content': 'You should speak English as default, and forget previous conversations' },
-      { 'role': 'assistant', 'content': 'Hello! Welcome to Owl Shoes, how can i help you today' },
+      { 'role': 'assistant', 'content': '¡Hola! Soy María de Rocketbot, una IA creada con Rocketbot SaturnStudio. Te estoy llamando para confirmar tu asistencia al Summit Rocketbot 2025. ¿Podrías confirmarme si asistirás al evento?' },
     ],
     this.partialResponseIndex = 0;
     this.isInterrupted = false;
@@ -41,7 +41,10 @@ class GptService extends EventEmitter {
   }
 
   interrupt () {
-    this.isInterrupted = true;
+    // Interruptions disabled for outbound calls to ensure complete message delivery
+    console.log("🚫 [GPT-SERVICE] Interrupt ignored - maintaining message flow for outbound calls");
+    // Do not set isInterrupted to true
+    return;
   }
 
   validateFunctionArgs (args) {
@@ -218,7 +221,31 @@ class GptService extends EventEmitter {
     }
 
     if (responseContent) {
-      // Simulate streaming by sending the response in chunks
+      // Check if we should end the call (confirmed "yes" OR closing "yes")
+      const shouldEndCall = (result.confirmed === "yes" || result.closing === "yes") || 
+                           (typeof result === 'object' && (result.confirmed === "yes" || result.closing === "yes"));
+      
+      if (shouldEndCall) {
+        const isConfirmed = result.confirmed === "yes";
+        const reason = isConfirmed ? 'Summit attendance confirmed' : 'Summit attendance declined - closing';
+        
+        console.log(`🎉 ${isConfirmed ? 'CONFIRMED' : 'DECLINED'} Summit attendance! Ending call immediately...`);
+        
+        // Send the response first
+        await this.simulateStreaming(responseContent, interactionCount);
+        this.userContext.push({'role': 'assistant', 'content': responseContent});
+        
+        // Emit endCall event immediately after message
+        this.emit('endCall', {
+          reason: reason,
+          confirmed: isConfirmed,
+          timestamp: new Date().toISOString()
+        });
+        
+        return; // Exit early to prevent further processing
+      }
+      
+      // Normal processing for other responses
       await this.simulateStreaming(responseContent, interactionCount);
       this.userContext.push({'role': 'assistant', 'content': responseContent});
       
@@ -231,6 +258,12 @@ class GptService extends EventEmitter {
       }
       if (result.name) {
         console.log('Name field:', result.name);
+      }
+      if (result.confirmed) {
+        console.log('Confirmation status:', result.confirmed);
+      }
+      if (result.closing) {
+        console.log('Closing status:', result.closing);
       }
     } else {
       console.error('No valid response content found in N8N response:', result);

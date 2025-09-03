@@ -1,7 +1,7 @@
 {
-  "name": "owl-shoes",
+  "name": "rocketbot-outbound-agent",
   "version": "1.0.0",
-  "description": "Twilio ConversationRelay + N8N Integration",
+  "description": "Twilio ConversationRelay + Rocketbot SaturnStudio Outbound Agent",
   "main": "app.js",
   "scripts": {
     "test": "jest",
@@ -12,8 +12,6 @@
   "author": "Hao Wang",
   "license": "MIT",
   "dependencies": {
-    "@deepgram/sdk": "^3.3.4",
-    "airtable": "^0.12.2",
     "colors": "^1.4.0",
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
